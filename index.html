@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Nexus Thermal">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1157/1157993.png">
+    <title>Nexus Thermal OS - Elite Medical</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Space Grotesk', 'sans-serif'] },
+                    colors: { panel: '#12141c', surface: '#1a1d29' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0a0b10; color: #e2e8f0; overflow-x: hidden; font-family: 'Inter', sans-serif; transition: box-shadow 1s ease-in-out; }
+        @keyframes auraGlow { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+        .aura-animate { animation: auraGlow 2s ease-in-out infinite; }
+        .aura-cool { box-shadow: inset 0 0 160px rgba(30, 64, 175, 0.8); }
+        .aura-heat { box-shadow: inset 0 0 160px rgba(185, 28, 28, 0.8); }
+        .aura-boost { box-shadow: inset 0 0 220px rgba(30, 58, 138, 1); }
+        .aura-eco, .aura-power, .aura-sanitize { box-shadow: inset 0 0 160px rgba(16, 185, 129, 0.8); }
+        .glass-panel { background: rgba(26, 29, 41, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .cool-gradient { background: linear-gradient(135deg, #1e40af 0%, #7e22ce 100%); }
+        .heat-gradient { background: linear-gradient(135deg, #b91c1c 0%, #f97316 100%); }
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; background: #334155; border-radius: 3px; }
+        input[type=range]::-webkit-slider-thumb { height: 24px; width: 24px; border-radius: 50%; background: #ffffff; -webkit-appearance: none; margin-top: -9px; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        .overlay-anim { animation: overlayFade 2.5s forwards; }
+        @keyframes overlayFade { 0% { opacity: 0; transform: scale(0.6); } 15% { opacity: 1; transform: scale(1); } 85% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.4); } }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out; }
+        .accordion-open .accordion-content { max-height: 1200px; }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #06b6d4; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body id="mainBody" class="antialiased">
+
+    <div id="centralAnim" class="fixed inset-0 z-[600] flex items-center justify-center pointer-events-none opacity-0">
+        <div class="glass-panel p-10 rounded-[3rem] border-2 border-white/20 shadow-2xl text-center">
+            <div id="animIcon" class="mb-4 flex justify-center scale-150"></div>
+            <h2 id="animText" class="text-2xl font-display font-bold text-white uppercase tracking-widest"></h2>
+        </div>
+    </div>
+
+    <header class="w-[94%] mx-auto mt-4 py-6 px-8 flex justify-between items-center glass-panel sticky top-4 z-50 rounded-[3rem] shadow-2xl">
+        <h1 class="font-display text-2xl font-bold text-white tracking-tight uppercase">NEXUS <span class="text-indigo-400">TERMAL</span></h1>
+        <div class="flex items-center gap-3">
+            <button onclick="playClick(); openBluetoothModal()" class="bg-white/5 text-white px-5 py-2 rounded-full text-xs font-bold border border-white/10">BUSCAR</button>
+            <button onclick="playClick(); simulateLid()" class="bg-indigo-600 text-white px-5 py-2 rounded-full text-xs font-bold active:scale-95 shadow-lg">TAPA</button>
+        </div>
+    </header>
+
+    <main class="p-4 md:p-8 max-w-[1400px] mx-auto space-y-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 flex flex-col gap-6">
+                <div id="statusPanel" class="glass-panel rounded-[3rem] p-8 relative h-full flex flex-col justify-center min-h-[350px]">
+                    <div class="flex justify-between items-start mb-6 absolute top-8 left-8 right-8">
+                        <p class="text-gray-400 text-[10px] font-bold uppercase tracking-widest">Monitor Global</p>
+                        <div class="flex items-center gap-3">
+                            <button onclick="toggleUnit()" id="unitBtn" class="text-[9px] font-black text-indigo-400 border border-indigo-500/30 px-2 py-1 rounded-lg uppercase">°C / °F</button>
+                            <div id="statusLed" class="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]"></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-center py-4">
+                        <div class="text-8xl font-display font-bold text-white flex items-start">
+                            <span id="currentTemp" data-c="22.0">22.0</span><span id="currentUnit" class="text-4xl text-indigo-400 mt-2">°C</span>
+                        </div>
+                        <p id="protocolStatusLabel" class="text-gray-500 font-bold uppercase text-[9px] tracking-[0.2em] mt-2 bg-white/5 px-4 py-1 rounded-full border border-white/5">Enfriamiento Manual</p>
+                        <p id="activeModeLabel" class="text-indigo-400 font-bold uppercase text-[10px] tracking-widest mt-4">Modo Enfriamiento Activo</p>
+                    </div>
+                    <div class="mt-6 flex flex-wrap gap-2 justify-center">
+                        <span id="badgeBoost" class="hidden px-3 py-1 bg-cyan-500/20 text-cyan-400 text-[9px] font-bold uppercase rounded-full border border-cyan-500/30">Boost</span>
+                        <span id="badgeEco" class="px-3 py-1 bg-green-500/20 text-green-400 text-[9px] font-bold uppercase rounded-full border border-green-500/30">Eco</span>
+                        <span id="badgeLid" class="hidden px-3 py-1 bg-red-500/20 text-red-400 text-[9px] font-bold uppercase rounded-full border border-red-500/30 animate-pulse">Alerta Tapa</span>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-[3rem] p-8 text-white text-white">
+                    <div class="flex justify-between items-center mb-8">
+                        <h3 class="text-sm font-bold uppercase tracking-widest">Control Energía</h3>
+                        <input type="checkbox" checked id="powerSwitch" onchange="handlePowerToggle(this)" class="sr-only peer">
+                        <label for="powerSwitch" class="w-11 h-6 bg-white/10 rounded-full relative cursor-pointer peer-checked:bg-indigo-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></label>
+                    </div>
+                    <div class="space-y-8">
+                        <div class="flex p-1 bg-white/5 rounded-2xl">
+                            <button onclick="playClick(); handleModeChange('cool')" id="btnCool" class="flex-1 py-3 rounded-xl text-xs font-bold cool-gradient">FRÍO</button>
+                            <button onclick="playClick(); handleModeChange('heat')" id="btnHeat" class="flex-1 py-3 rounded-xl text-xs font-bold text-gray-400">CALOR</button>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-baseline mb-4">
+                                <span class="text-xs font-bold uppercase text-gray-400 tracking-widest">Objetivo</span>
+                                <span class="text-2xl font-display font-bold"><span id="targetValue">4.0</span><span id="targetUnit">°C</span></span>
+                            </div>
+                            <input type="range" id="tempSlider" min="-50" max="20" step="0.5" value="4" class="w-full h-2 cursor-pointer" onmousedown="checkManualChange(event)" ontouchstart="checkManualChange(event)" oninput="handleSliderInput(this)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 flex flex-col gap-6">
+                <div class="glass-panel rounded-[3rem] p-8 h-[450px]">
+                    <canvas id="tempChart"></canvas>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-white text-xs font-bold uppercase tracking-widest">
+                    <button id="sanitizeBtn" onclick="playClick(); startSanitization()" class="relative glass-panel p-6 rounded-[2rem] flex items-center justify-between group overflow-hidden text-white">
+                        <div id="sanitizeProgress" class="absolute inset-0 bg-emerald-500/20 translate-x-[-100%] transition-transform duration-[30s] linear"></div>
+                        <span class="relative z-10 text-white font-bold">Sanitización UV</span>
+                        <span id="sanitizeTime" class="text-[10px] text-gray-500 relative z-10">30s</span>
+                    </button>
+                    <button onclick="playClick(); toggleEcoBtn()" class="glass-panel p-6 rounded-[2rem] flex items-center justify-between transition-all">
+                        <span>Modo Eco</span>
+                        <div id="ecoToggleUI" class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#10b981]"></div>
+                    </button>
+                    <button onclick="playClick(); toggleBoost()" class="glass-panel p-6 rounded-[2rem] flex items-center justify-between col-span-1 md:col-span-2">
+                        <span>Performance Boost</span>
+                        <div id="boostToggleUI" class="w-2 h-2 rounded-full bg-gray-600 shadow-lg"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <section class="glass-panel rounded-[3.5rem] p-10 space-y-8">
+            <h2 class="text-4xl font-display font-bold text-white tracking-tighter text-center uppercase">Protocolos de Preservación</h2>
+            <div id="accordionContainer" class="space-y-4 text-white"></div>
+        </section>
+    </main>
+
+    <div id="confirmModal" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-surface border border-white/10 w-full max-w-sm m-4 rounded-[2.5rem] p-10 shadow-2xl text-center text-white">
+            <h3 id="confirmTitle" class="text-xl font-display font-bold mb-4 uppercase tracking-tighter">¿Confirmar?</h3>
+            <p id="confirmDesc" class="text-gray-400 mb-8 text-sm leading-relaxed"></p>
+            <div class="flex gap-4">
+                <button onclick="closeConfirmModal()" class="flex-1 py-4 bg-white/5 rounded-2xl font-bold text-xs">CANCELAR</button>
+                <button id="confirmBtnAction" class="flex-1 py-4 bg-indigo-600 rounded-2xl font-bold text-xs shadow-lg text-white">CONFIRMAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="btModal" class="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300 text-white">
+        <div class="bg-surface border border-white/10 w-full max-w-md m-4 rounded-[2.5rem] p-10 shadow-2xl text-center">
+            <div class="flex justify-between items-center mb-8"><h3 class="text-lg font-bold uppercase tracking-widest text-indigo-400">Bluetooth</h3><button onclick="closeBluetoothModal()" class="text-gray-400 text-2xl">✕</button></div>
+            <div id="btLoading"><div class="spinner mx-auto mb-6"></div><p class="text-xs text-gray-400 animate-pulse uppercase tracking-widest">Buscando Dispositivos...</p></div>
+            <div id="btList" class="hidden space-y-3"></div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="fixed bottom-8 right-8 z-[200] flex flex-col gap-3 pointer-events-none"></div>
+
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let auraTimeout = null, lidInterval = null, elevatorInterval = null, chart;
+        let currentMode = 'cool', isBoost = false, isEco = true, isCelsius = true, protocolActive = false, notifiedReached = false;
+        let targetC = 4.0;
+
+        const catalogData = {
+            "Vacunas Especializadas": [
+                { name: "Pfizer-BioNTech mRNA", temp: -50.0, note: "Ultra-congelación requerida." },
+                { name: "Moderna Spikevax", temp: -20.0, note: "Congelación estándar." },
+                { name: "AstraZeneca / Sputnik", temp: 4.0, note: "Refrigeración normal 2-8°C." },
+                { name: "Influenza (Gripe)", temp: 4.0, note: "Protección anual." },
+                { name: "Triple Viral (SRP)", temp: 4.0, note: "Sensible a la luz UV." }
+            ],
+            "Suministros Hemáticos": [
+                { name: "Plasma Fresco", temp: -30.0, note: "Preservar factores VIII y V." },
+                { name: "Glóbulos Rojos", temp: 4.0, note: "Vida útil máxima 42 días." },
+                { name: "Plaquetas", temp: 22.0, note: "Agitación suave requerida." },
+                { name: "Crioprecipitados", temp: -18.0, note: "Mantener cadena de frío." },
+                { name: "Suero Antiofídico", temp: 5.0, note: "Urgencia médica vital." }
+            ],
+            "Trasplantes de Órganos": [
+                { name: "Corazón Humano", temp: 4.0, note: "Preservación máxima 4-6h." },
+                { name: "Riñón", temp: 4.0, note: "Ventana clínica hasta 24h." },
+                { name: "Hígado", temp: 6.0, note: "Estabilidad térmica crítica." },
+                { name: "Pulmón", temp: 6.0, note: "Sensible a humedad." },
+                { name: "Córneas / Piel", temp: 4.0, note: "Bancos de tejido médico." }
+            ],
+            "Farmacia Avanzada": [
+                { name: "Insulina", temp: 5.0, note: "No congelar bajo riesgo." },
+                { name: "Adrenalina", temp: 20.0, note: "Protección luz y calor." },
+                { name: "Oxitocina", temp: 4.0, note: "Uso obstétrico crítico." },
+                { name: "Antibióticos Líquidos", temp: 8.0, note: "Mantener suspensión fría." }
+            ],
+            "Bio-Banco y ADN": [
+                { name: "Muestras ADN / ARN", temp: -50.0, note: "Crio-estabilización genética." },
+                { name: "Células Madre", temp: -40.0, note: "Preservación de largo plazo." },
+                { name: "Cultivos Bacterianos", temp: 4.0, note: "Inhibición metabólica." }
+            ]
+        };
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime, osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            let f1, f2, d = 0.1, g = 0.1, t = 'sine';
+            switch(type) {
+                case 'click': f1 = 800; f2 = 100; break;
+                case 'success': f1 = 523; f2 = 1046; d = 0.4; break;
+                case 'power': f1 = 200; f2 = 800; d = 0.5; break;
+                case 'boost': f1 = 150; f2 = 1500; d = 0.6; t = 'sawtooth'; break;
+                case 'eco': f1 = 400; f2 = 800; d = 0.5; break;
+                case 'alarm': f1 = 440; f2 = 880; d = 0.2; t = 'square'; g = 0.2; break;
+                case 'confirm': f1 = 300; f2 = 600; d = 0.3; t = 'square'; g = 0.15; break;
+                case 'connect': f1 = 400; f2 = 1200; d = 0.5; g = 0.2; break;
+            }
+            osc.type = t; osc.frequency.setValueAtTime(f1, now); osc.frequency.exponentialRampToValueAtTime(f2, now + d);
+            gain.gain.setValueAtTime(g, now); gain.gain.exponentialRampToValueAtTime(0.01, now + d);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(now + d);
+            try { if (window.Capacitor?.Plugins?.Haptics) window.Capacitor.Plugins.Haptics.impact({ style: (type === 'alarm' ? 'HEAVY' : 'MEDIUM') }); } catch(e) {}
+        }
+
+        const triggerVibration = (style = 'MEDIUM') => { try { if (window.Capacitor?.Plugins?.Haptics) window.Capacitor.Plugins.Haptics.impact({ style }); } catch(e) {} };
+        const playClick = () => playSound('click');
+        const playSuccess = () => playSound('success');
+        const playPower = () => playSound('power');
+        const playBoost = () => playSound('boost');
+        const playEco = () => playSound('eco');
+        const playAlarm = () => playSound('alarm');
+        const playConfirmSound = () => playSound('confirm');
+
+        function playElevatorMusic() {
+            if(elevatorInterval) return;
+            let note = 0; const notes = [261.63, 329.63, 392.00, 523.25];
+            elevatorInterval = setInterval(() => {
+                const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(notes[note % 4], audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.02, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.6);
+                note++;
+            }, 600);
+        }
+
+        function stopElevatorMusic() { clearInterval(elevatorInterval); elevatorInterval = null; }
+
+        function toggleUnit() {
+            isCelsius = !isCelsius;
+            playClick();
+            document.getElementById('currentUnit').innerText = isCelsius ? "°C" : "°F";
+            document.getElementById('targetUnit').innerText = isCelsius ? "°C" : "°F";
+            updateSliderRange();
+            loadCatalog();
+            showToast(`UNIDAD: ${isCelsius ? 'CELSIUS' : 'FAHRENHEIT'}`, "success");
+        }
+
+        function toF(c) { return (c * 9/5) + 32; }
+        function toC(f) { return (f - 32) * 5/9; }
+        function formatTemp(val) { return isCelsius ? val.toFixed(1) : toF(val).toFixed(1); }
+
+        function updateAura(type, duration = 4000) {
+            const body = document.getElementById('mainBody');
+            body.className = 'antialiased ' + (type || (currentMode === 'cool' ? 'aura-cool' : 'aura-heat')) + ' aura-animate';
+            if(auraTimeout) clearTimeout(auraTimeout);
+            auraTimeout = setTimeout(() => { body.className = 'antialiased'; }, duration);
+        }
+
+        function triggerCentralAnim(type, text) {
+            const container = document.getElementById('centralAnim'), iconDiv = document.getElementById('animIcon'), textH2 = document.getElementById('animText');
+            let iconSvg = '';
+            if(type === 'boost') iconSvg = '<svg class="w-24 h-24 text-cyan-400" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
+            else if(type === 'eco') iconSvg = '<svg class="w-24 h-24 text-green-400" fill="currentColor" viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8H7z"/></svg>';
+            else iconSvg = '<svg class="w-24 h-24 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>';
+            textH2.innerText = text;
+            iconDiv.innerHTML = iconSvg;
+            container.classList.replace('opacity-0', 'opacity-100'); container.classList.add('overlay-anim');
+            setTimeout(() => { container.classList.replace('opacity-100', 'opacity-0'); container.classList.remove('overlay-anim'); }, 2500);
+        }
+
+        function openConfirmModal(title, desc, onConfirm) {
+            playConfirmSound();
+            document.getElementById('confirmTitle').innerText = title;
+            document.getElementById('confirmDesc').innerText = desc;
+            const modal = document.getElementById('confirmModal');
+            modal.classList.replace('opacity-0', 'opacity-100');
+            modal.classList.remove('pointer-events-none');
+            document.getElementById('confirmBtnAction').onclick = () => { onConfirm(); closeConfirmModal(); };
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.replace('opacity-100', 'opacity-0');
+            document.getElementById('confirmModal').classList.add('pointer-events-none');
+        }
+
+        function handlePowerToggle(checkbox) {
+            if (!checkbox.checked) {
+                checkbox.checked = true;
+                openConfirmModal("¿Apagar?", "El sistema térmico se detendrá.", () => { checkbox.checked = false; applyPowerState(false); });
+            } else { applyPowerState(true); }
+        }
+
+        function applyPowerState(on) {
+            document.getElementById('powerLabel')?.innerText ? document.getElementById('powerLabel').innerText = on ? "SISTEMA ACTIVO" : "SISTEMA APAGADO" : null;
+            const led = document.getElementById('statusLed');
+            if (on) {
+                playPower(); updateAura('aura-power', 2000);
+                led.className = 'w-3 h-3 rounded-full ' + (currentMode === 'cool' ? 'bg-blue-500 shadow-[0_0_10px_#3b82f6]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]');
+            } else {
+                led.className = 'w-3 h-3 rounded-full bg-gray-600 shadow-none';
+            }
+            showToast(on ? "SISTEMA INICIADO" : "SISTEMA DETENIDO", on ? "success" : "error");
+        }
+
+        function handleModeChange(mode) {
+            if (mode === currentMode) return;
+            openConfirmModal("Cambiar Modo", `Ajustar a modo ${mode === 'cool' ? 'FRÍO' : 'CALOR'}.`, () => applyModeChange(mode));
+        }
+
+        function applyModeChange(mode) {
+            currentMode = mode;
+            document.getElementById('btnCool').className = mode === 'cool' ? 'flex-1 py-3 rounded-xl text-xs font-bold cool-gradient text-white shadow-lg' : 'flex-1 py-3 rounded-xl text-xs font-bold text-gray-400';
+            document.getElementById('btnHeat').className = mode === 'heat' ? 'flex-1 py-3 rounded-xl text-xs font-bold heat-gradient text-white shadow-lg' : 'flex-1 py-3 rounded-xl text-xs font-bold text-gray-400';
+            document.getElementById('activeModeLabel').innerText = mode === 'cool' ? "ENFRIAMIENTO ACTIVO" : "CALEFACCIÓN ACTIVA";
+            updateSliderRange();
+            updateAura();
+            resetManualLabel();
+        }
+
+        function checkManualChange(e) {
+            if (protocolActive) {
+                e.preventDefault();
+                openConfirmModal("¡ADVERTENCIA!", "¿Deseas modificar la temperatura? Esto afectará el contenido actual.", () => {
+                    protocolActive = false;
+                    resetManualLabel();
+                });
+            }
+        }
+
+        function handleSliderInput(e) {
+            if (protocolActive) { e.value = isCelsius ? targetC : toF(targetC); return; }
+            const val = parseFloat(e.value);
+            targetC = isCelsius ? val : toC(val);
+            document.getElementById('targetValue').innerText = val.toFixed(1);
+            notifiedReached = false;
+            triggerVibration('LIGHT');
+        }
+
+        function updateSliderRange() {
+            const slider = document.getElementById('tempSlider');
+            if (currentMode === 'cool') { slider.min = isBoost ? -50 : 0; slider.max = 20; }
+            else { slider.min = 20; slider.max = 50; }
+            slider.value = isCelsius ? targetC : toF(targetC);
+            if (slider.value < slider.min) slider.value = slider.min;
+            if (slider.value > slider.max) slider.value = slider.max;
+            document.getElementById('targetValue').innerText = parseFloat(slider.value).toFixed(1);
+        }
+
+        function toggleEcoBtn() {
+            isEco = !isEco;
+            if(isEco) { playEco(); updateAura('aura-eco', 3000); triggerCentralAnim('eco', 'MODO ECO ACTIVADO'); }
+            document.getElementById('ecoToggleUI').className = isEco ? 'w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#10b981]' : 'w-2 h-2 rounded-full bg-gray-600';
+            document.getElementById('badgeEco').classList.toggle('hidden', !isEco);
+        }
+
+        function toggleBoost() {
+            isBoost = !isBoost;
+            if(isBoost) { playBoost(); updateAura('aura-boost', 3000); triggerCentralAnim('boost', 'BOOST ACTIVADO'); }
+            document.getElementById('boostToggleUI').className = isBoost ? 'w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_10px_#22d3ee]' : 'w-2 h-2 rounded-full bg-gray-600';
+            document.getElementById('badgeBoost').classList.toggle('hidden', !isBoost);
+            updateSliderRange();
+        }
+
+        function startSanitization() {
+            const btn = document.getElementById('sanitizeBtn'), prog = document.getElementById('sanitizeProgress'), time = document.getElementById('sanitizeTime');
+            btn.disabled = true; updateAura('aura-sanitize', 30000); triggerCentralAnim('sanitize', 'SANITIZACIÓN INICIADA');
+            let count = 30; prog.style.transform = 'translateX(0)';
+            const timer = setInterval(() => {
+                count--; time.innerText = `${count}s`;
+                if(count <= 0) { clearInterval(timer); btn.disabled = false; time.innerText = "30s"; playSuccess(); updateAura(); prog.style.transform = 'translateX(-100%)'; }
+            }, 1000);
+        }
+
+        function simulateLid() {
+            if(lidInterval) return;
+            document.getElementById('badgeLid').classList.remove('hidden');
+            showToast("¡ALERTA: TAPA ABIERTA!", "error");
+            lidInterval = setInterval(() => { playAlarm(); triggerVibration('HEAVY'); }, 800);
+            setTimeout(() => { clearInterval(lidInterval); lidInterval = null; document.getElementById('badgeLid').classList.add('hidden'); showToast("Tapa asegurada", "success"); }, 5000);
+        }
+
+        function loadCatalog() {
+            const container = document.getElementById('accordionContainer'); container.innerHTML = '';
+            for (const [category, items] of Object.entries(catalogData)) {
+                const section = document.createElement('div'); section.className = 'glass-panel rounded-2xl overflow-hidden accordion-item mb-2';
+                section.innerHTML = `<button onclick="toggleAccordion(this)" class="w-full p-6 flex justify-between items-center text-white hover:bg-white/5 transition-all font-bold uppercase text-xs tracking-widest"><span>${category}</span><svg class="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"/></svg></button>
+                    <div class="accordion-content"><div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-white">${items.map(item => `
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 flex justify-between items-center group">
+                            <div><div class="text-[11px] font-bold uppercase">${item.name}</div><div class="text-[9px] text-gray-500">${item.note}</div></div>
+                            <div class="text-right"><div class="text-lg font-display font-bold text-indigo-400 mb-2">${formatTemp(item.temp)}°${isCelsius ? 'C' : 'F'}</div><button onclick="applyCatalogTemp('${item.name}', ${item.temp})" class="bg-indigo-600 text-[8px] font-bold px-4 py-2 rounded-lg uppercase transition-all hover:bg-indigo-500 shadow-lg">Aplicar</button></div>
+                        </div>`).join('')}</div></div>`;
+                container.appendChild(section);
+            }
+        }
+
+        function toggleAccordion(btn) {
+            const item = btn.parentElement; const isOpen = item.classList.contains('accordion-open');
+            document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('accordion-open'));
+            if (!isOpen) item.classList.add('accordion-open'); playClick();
+        }
+
+        function applyCatalogTemp(name, temp) {
+            openConfirmModal("Protocolo Médico", `¿Sincronizar a ${formatTemp(temp)}° para preservación de ${name.toUpperCase()}?`, () => {
+                if (temp > 20) applyModeChange('heat'); else applyModeChange('cool');
+                if (temp < 0 && !isBoost) toggleBoost();
+                targetC = temp;
+                updateSliderRange();
+                protocolActive = true; notifiedReached = false;
+                document.getElementById('protocolStatusLabel').innerText = "Protocolo: " + name;
+                document.getElementById('protocolStatusLabel').classList.replace('text-gray-500', 'text-indigo-400');
+                showToast(`PROTOCOLO: ${name.toUpperCase()}`, "success");
+            });
+        }
+
+        function resetManualLabel() {
+            protocolActive = false;
+            document.getElementById('protocolStatusLabel').innerText = "Enfriamiento Manual";
+            document.getElementById('protocolStatusLabel').classList.replace('text-indigo-400', 'text-gray-500');
+        }
+
+        async function openBluetoothModal() {
+            document.getElementById('btModal').classList.replace('opacity-0', 'opacity-100'); document.getElementById('btModal').classList.remove('pointer-events-none');
+            playElevatorMusic();
+            try { 
+                const Ble = window.Capacitor.Plugins.BluetoothLe; await Ble.initialize(); const device = await Ble.requestDevice();
+                stopElevatorMusic(); playSound('connect'); document.getElementById('btLoading').classList.add('hidden');
+                document.getElementById('btList').classList.remove('hidden').innerHTML = `<div onclick="closeBluetoothModal()" class="p-4 bg-white/5 border border-white/10 rounded-2xl flex justify-between cursor-pointer text-white"><span>${device.name || 'Nexus Device'}</span><span class="text-indigo-400 font-bold uppercase text-[10px]">VINCULADO</span></div>`;
+            } catch (e) { stopElevatorMusic(); }
+        }
+
+        function closeBluetoothModal() { stopElevatorMusic(); document.getElementById('btModal').classList.replace('opacity-100', 'opacity-0'); document.getElementById('btModal').classList.add('pointer-events-none'); }
+
+        async function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer'), toast = document.createElement('div');
+            toast.className = 'glass-panel px-6 py-4 rounded-2xl border-l-4 text-white text-[10px] font-bold uppercase transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-auto';
+            toast.style.borderColor = type === 'error' ? '#ef4444' : (type === 'success' ? '#10b981' : '#6366f1');
+            toast.innerText = message; container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-4', 'opacity-0'), 10);
+            setTimeout(() => { toast.classList.add('translate-y-4', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3500);
+        }
+
+        window.onload = () => {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            chart = new Chart(ctx, { type: 'line', data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(22.0), borderColor: '#6366f1', fill: true, tension: 0.4, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.4)', callback: (v) => isCelsius ? v + '°' : toF(v).toFixed(0) + '°' } }, x: { display: false } } } });
+            loadCatalog();
+            setInterval(() => {
+                if(document.getElementById('powerSwitch').checked) {
+                    const currentC = parseFloat(document.getElementById('currentTemp').dataset.c || 22.0);
+                    let diff = targetC - currentC;
+                    if (Math.abs(diff) < 0.2 && !notifiedReached) { showToast("TEMPERATURA ALCANZADA", "success"); playSuccess(); notifiedReached = true; }
+                    let step = diff * (isBoost ? 0.4 : 0.1);
+                    const newC = currentC + step + (Math.random() - 0.5) * 0.1;
+                    document.getElementById('currentTemp').dataset.c = newC;
+                    document.getElementById('currentTemp').innerText = isCelsius ? newC.toFixed(1) : toF(newC).toFixed(1);
+                    chart.data.datasets[0].data.push(newC); chart.data.datasets[0].data.shift(); chart.update('none');
+                }
+            }, 2500);
+        };
+
+        // Registro del Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker de Nexus registrado exitosamente.'))
+                    .catch(err => console.error('Error al registrar el Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+</html>
