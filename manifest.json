@@ -1,1 +1,17 @@
-
+{
+  "name": "Nexus Thermal OS",
+  "short_name": "NexusThermal",
+  "description": "Elite Medical Thermal Control System",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0a0b10",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1157/1157993.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
